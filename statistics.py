@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 
 import math
+import sys
 
 
 t_distribution_diagram = {
@@ -37,7 +38,7 @@ t_distribution_diagram = {
   40: [2.0211, 2.7045],
   60: [2.0003, 2.6603],
   120: [1.9799, 2.6174],
-  190: [1.9600, 2.5758]
+  181: [1.9600, 2.5758]
 }
 
 
@@ -49,7 +50,7 @@ def dispersion(seq):
   '''分散'''
   
   avg = average(seq)  
-  total = sum(diff_from_avg(seq, avg))
+  total = sum(_diff_from_avg(seq, avg))
   
   return total / float(len(seq))
 
@@ -62,21 +63,106 @@ def standard_variation(seq):
 
 def unbiased_estimate_of_variance(seq):
   '''不偏分散'''
+  
   avg = average(seq)
-  total = sum(diff_from_avg(seq, avg))
+  total = sum(_diff_from_avg(seq, avg))
   
   return total / float(len(seq) - 1)
 
 
-def diff_from_avg(seq, avg):
+def _diff_from_avg(seq, avg):
   return [math.pow(math.fabs(n - avg), 2) for n in seq]
 
 
-def confidence_interval():
+def confidence_interval(seq):
   '''信頼区間'''
+  
+  freedom = len(seq) - 1
+  
+  # とりあえず信頼区間95%で計算
+  t = _select_t(freedom)
+  min = 0
+  max = 0
+  
+  se = math.sqrt(unbiased_estimate_of_variance(seq) / len(seq))
+  
+  print(se)
+  print(t)
+  min = average(seq) + t * (- 1) * se
+  max = average(seq) + t * se
+  
+  return (min, max)
+  
+
+# interval 95とか
+def _select_t(freedom, interval = 0):
+  '''自由度に当てはまるtの値を取得します'''
+  
+  if t_distribution_diagram.has_key(freedom):
+    return t_distribution_diagram[freedom][0]
+  
+  min_t = 0
+  min = sys.maxint
+  for t in t_distribution_diagram.keys():
+    if math.fabs(freedom - t) < min:
+      min = math.fabs(freedom - t)
+      min_t = t
+
+  return t_distribution_diagram[min_t][0]
 
 
+def chi_square(actual, expect):
+  '''カイ2乗値'''
+  
+  total = 0
+  for i in range(len(actual)):
+    row = actual[i]
+    
+    for j in range(len(row)):
+      total += math.pow(math.fabs(row[j] - expect[i][j]), 2) / expect[i][j] 
 
+  return total
+
+
+def covariance(seq1, seq2):
+  '''共分散'''
+  if len(seq1) != len(seq2):
+    raise InvalidArgumentError()
+
+  avg1 = average(seq1)
+  avg2 = average(seq2)
+  
+  total = 0
+  for i in range(len(seq1)):
+    total += (seq1[i] - avg1) * (seq2[i] - avg2)
+
+  return total / float(len(seq1))
+
+
+class InvalidArgumentError(Exception):
+  pass
+
+class TTest:
+  
+  @classmethod
+  def diff_of_standard_error(cls, seq1, seq2):
+    '''差の標準誤差'''
+    return math.sqrt(TTest.illation_of_population(seq1, seq2) * (1.0 / len(seq1) + 1.0 / len(seq2)))
+    
+  @classmethod
+  def illation_of_population(cls, seq1, seq2):
+    '''推定母分散'''
+
+    return (dispersion(seq1) * len(seq1) + dispersion(seq2) * len(seq2)) / ((len(seq1) - 1) + (len(seq2) - 1))
+  
+  @classmethod
+  def confidence_interval(cls, seq1, seq2): 
+    '''信頼区間'''
+    pass
+    return average(seq1) - average(seq2) - 2
+
+
+    
 if __name__ == '__main__':
   wakuwaku = [
   3.5, 4.2, 4.9, 4.6, 2.8, 5.6, 4.2, 4.9, 4.4, 3.7,
@@ -94,3 +180,17 @@ if __name__ == '__main__':
   sample2 = [47, 51, 49, 50, 49, 46, 51, 48, 52, 49]
   print(unbiased_estimate_of_variance(sample2))
   
+  
+  print(confidence_interval(sample2))  
+  print(chi_square([[435, 165],[265, 135]], [[420, 180],[280, 120]]))
+  
+  
+  waku = [70, 75, 70, 85, 90, 70, 80, 75]
+  mogu = [85, 80, 95, 70, 80, 75, 80, 90]
+  
+  print("illation")
+  print(TTest.diff_of_standard_error(waku, mogu))
+
+  print("共分散")
+  print(covariance([71, 34, 58, 41, 69, 64, 16, 59], [64, 48, 59, 51, 56, 65, 45, 59]))
+
